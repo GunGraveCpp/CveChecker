@@ -1,0 +1,9 @@
+# Byte-compiled / optimized / DLL files
+.idea/
+__pycache__/
+
+# Input / Output
+*.docx
+*.txt
+!requirements.txt
+!TODO.txt

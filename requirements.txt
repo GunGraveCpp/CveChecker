@@ -1,0 +1,7 @@
+docx~=0.2.4
+python-docx~=0.8.10
+vulners~=1.5.5
+requests~=2.23.0
+bs4~=0.0.1
+beautifulsoup4~=4.8.2
+googletrans~=2.4.0
