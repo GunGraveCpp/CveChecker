@@ -1,6 +1,5 @@
 import vulners
 import os
-import sys
 import functools
 import requests
 from docx.shared import Cm
@@ -14,6 +13,7 @@ def time_measurement(func):
     '''Декоратор для замера времени'''
 
     import time
+
     @functools.wraps(func)
     def inner(*args, **kwargs):
         start = time.time()
@@ -37,26 +37,22 @@ def trace(func):
     return inner if DEBUG else func
 
 
-
 def read_package_in_file(name):
     package_list = {'deb': [], 'rpm': [], 'archive': [], 'unknown': []}
 
-    try:
-        with open(name, 'r') as file:
-            for package in file:
-                if package.rfind('.deb') != -1:
-                    package_list['deb'].append(
-                        package.replace('_', ' ').replace('.deb', ''))
-                elif package.rfind('.rpm') != -1:
-                    package_list['rpm'].append(package.replace('.rpm', ''))
-                # package.count('-') костыль, чтобы была возможность делить имя и версию архива
-                elif (package.rfind('.tar') & package.rfind('.zip') != -1) & package.count('-'):
-                    package_list['archive'].append(
-                        package[:package.find('.tar') & package.find('.zip')])
-                else:
-                    package_list['unknown'].append(package)
-    except FileNotFoundError as er:
-        print(er, file=sys.stderr)
+    with open(name, 'r') as file:
+        for package in file:
+            if package.rfind('.deb') != -1:
+                package_list['deb'].append(
+                    package.replace('_', ' ').replace('.deb', ''))
+            elif package.rfind('.rpm') != -1:
+                package_list['rpm'].append(package.replace('.rpm', ''))
+            # package.count('-') костыль, чтобы была возможность делить имя и версию архива
+            elif (package.rfind('.tar') & package.rfind('.zip') != -1) & package.count('-'):
+                package_list['archive'].append(
+                    package[:package.find('.tar') & package.find('.zip')])
+            else:
+                package_list['unknown'].append(package)
 
     return package_list
 
@@ -70,7 +66,7 @@ def set_col_widths(table):
 
 def generate_doc_table(document):
     document.add_heading(TABLE_NAME, 1)
-    table = document.add_table(rows=1, cols=5, style='Table Grid')
+    table = document.add_table(rows=1, cols=6, style='Table Grid')
 
     for column in range(0, len(table.columns)):
         table.cell(0, column).text = TABLE_HEADER[column]
@@ -133,7 +129,7 @@ def fill_package_info(package_info, cve_list):
 
         package_info['cvelist'].append(
             {'cve': cve,
-             'description': translate_to_rus(cve_info['description']),
+             'description': cve_info['description'],
              'exploit': cve_info['exploit']
              }
         )
@@ -188,24 +184,13 @@ def get_package_info_archive(name, vulners_api):
 
 def past_package_in_table(table, package_info):
     '''Вставки информации о пакете в таблицу'''
-    idx_first_row = len(table.rows)
-    if len(package_info['cvelist']) != 0:
-        for cve_info in package_info['cvelist']:
-            row = table.add_row()
-            row.cells[2].text = cve_info['cve']
-            row.cells[3].text = cve_info['description']
-            row.cells[4].text = cve_info['exploit']
 
-        table.cell(idx_first_row, 0).merge(table.cell(len(table.rows) - 1, 0))
-        table.cell(idx_first_row, 1).merge(table.cell(len(table.rows) - 1, 1))
-    else:
+    for cve_info in package_info['cvelist']:
         row = table.add_row()
-        row.cells[2].text = INVULNERABILITY_MESSAGE
-        row.cells[3].text = INVULNERABILITY_MESSAGE
-        row.cells[4].text = INVULNERABILITY_MESSAGE
-
-    table.cell(idx_first_row, 0).text = package_info['package']
-    table.cell(idx_first_row, 1).text = package_info['version']
+        row.cells[0].text = cve_info['cve']
+        row.cells[2].text = cve_info['description']
+        row.cells[3].text = package_info['package']
+        row.cells[4].text = translate_to_rus(cve_info['description'])
 
 
 @time_measurement
@@ -221,10 +206,7 @@ def run_check(table, package_list):
         package_info = get_package_info_rpm(package_rpm, vulners_api)
         past_package_in_table(table, package_info)
     for package_archive in package_list['archive']:
-        try:
-            package_info = get_package_info_archive(package_archive, vulners_api)
-            past_package_in_table(table, package_info)
-        except Exception as error:
-            print(error)
+        package_info = get_package_info_archive(package_archive, vulners_api)
+        past_package_in_table(table, package_info)
     with open("unknown.txt", "w") as outfile:
         outfile.write('\n'.join(package_list['unknown']))

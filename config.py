@@ -9,10 +9,9 @@ DEB_VERSION = '8'
 CENT_OS = 'centos'
 CENT_VERSION = '7'
 
-TABLE_NAME = 'Таблица CVE'
-TABLE_HEADER = ['Пакет', 'Версия', 'Список CVE', ' Описание', 'Exploit']
-COLUMN_SIZE = [4.5, 2.5, 3.5, 10.0, 3.0]
-INVULNERABILITY_MESSAGE = 'Для данного пакета не было найдено уязвимостей'
+TABLE_NAME = 'ПРИЛОЖЕНИЕ'
+TABLE_HEADER = ['Идентификатор', 'Характер уязвимости', 'Описание', ' Компонент', 'Комментарий', 'Применимость']
+COLUMN_SIZE = [2, 2, 8, 2, 8, 4]
 WITHOUT_DESCRIPTION = 'Информация не найдена'
 
 NIST_LINK = 'https://nvd.nist.gov/vuln/detail/{}'
