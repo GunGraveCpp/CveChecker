@@ -1,7 +1,5 @@
 DEBUG = True
-
-INITIAL_FILE = 'package_list.txt'
-RESULT_FILE = 'vulnerability_report.docx'
+INFO = True
 
 DEB_OS = 'debian'
 DEB_VERSION = '8'
@@ -10,7 +8,7 @@ CENT_OS = 'centos'
 CENT_VERSION = '7'
 
 TABLE_NAME = 'ПРИЛОЖЕНИЕ'
-TABLE_HEADER = ['Идентификатор', 'Характер уязвимости', 'Описание', ' Компонент', 'Комментарий', 'Применимость']
+TABLE_HEADER = ['Идентификатор', 'Характер уязвимости', 'Описание', 'Компонент', 'Комментарий', 'Применимость']
 COLUMN_SIZE = [2, 2, 8, 2, 8, 4]
 WITHOUT_DESCRIPTION = 'Информация не найдена'
 

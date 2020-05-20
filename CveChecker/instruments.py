@@ -5,8 +5,10 @@ import requests
 from docx.shared import Cm
 from bs4 import BeautifulSoup
 from googletrans import Translator
+from sys import stderr
+from docx import Document
 
-from config import *
+from CveChecker.config import *
 
 
 def time_measurement(func):
@@ -35,6 +37,20 @@ def trace(func):
             func.__name__, args, kwargs, ret_value), end='\n\n')
         return ret_value
     return inner if DEBUG else func
+
+
+def final_message(text):
+    '''Декоратор для вывода сообщения'''
+
+    def wrapper(func):
+        @functools.wraps(func)
+        def inner(*args, **kwargs):
+            ret_value = func(*args, **kwargs)
+            print(text)
+            return ret_value
+        return inner if INFO else func
+
+    return wrapper
 
 
 def read_package_in_file(name):
@@ -193,12 +209,10 @@ def past_package_in_table(table, package_info):
         row.cells[4].text = translate_to_rus(cve_info['description'])
 
 
-@time_measurement
-def run_check(table, package_list):
-    '''Запуск задачи проверки и генерация отчета'''
+def gather_information(table, package_list):
+    '''Сбор информации о пакетах'''
 
     vulners_api = vulners.Vulners(api_key=os.environ['VULNERS_API_KEY'])
-
     for package_deb in package_list['deb']:
         package_info = get_package_info_deb(package_deb, vulners_api)
         past_package_in_table(table, package_info)
@@ -208,5 +222,19 @@ def run_check(table, package_list):
     for package_archive in package_list['archive']:
         package_info = get_package_info_archive(package_archive, vulners_api)
         past_package_in_table(table, package_info)
-    with open("unknown.txt", "w") as outfile:
+    with open("../unknown.txt", "w") as outfile:
         outfile.write('\n'.join(package_list['unknown']))
+
+
+@time_measurement
+def run_check(inputfile, outputfile):
+    '''Запуск задачи проверки и генерация отчета'''
+    try:
+        document = Document()
+        package_list = read_package_in_file(inputfile)
+        table = generate_doc_table(document)
+        gather_information(table, package_list)
+        set_col_widths(table)
+        document.save(outputfile)
+    except Exception as er:
+        print(er, file=stderr)

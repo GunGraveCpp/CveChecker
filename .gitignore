@@ -6,4 +6,3 @@ __pycache__/
 *.docx
 *.txt
 !requirements.txt
-!TODO.txt
