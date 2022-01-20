@@ -1,9 +1,9 @@
 import functools
+import os
 from sys import stderr
 
 import requests
 import vulners
-import os
 from bs4 import BeautifulSoup
 from docx import Document
 from docx.shared import Cm
@@ -105,7 +105,6 @@ def archive_version(name):
     return name.split('_', 1)[1]
 
 
-
 def get_description(cve):
     '''  Функция получения описпния CVE
     Получение описания и наличия eploit с https://nvd.nist.gov/
@@ -157,12 +156,16 @@ def get_package_info_deb(name, vulners_api):
 
     package_info = {'package': name.replace(
         ' ', '_'), 'version': deb_version(name), 'cvelist': []}
-    results = vulners_api.audit(
-        os=DEB_OS, os_version=DEB_VERSION, package=[name])
+    try:
+        results = vulners_api.os_audit(
+            os=DEB_OS, version=DEB_VERSION, packages=[name])
 
-    if len(results['reasons']) != 0:
-        cve_list = results.get('cvelist')
-        fill_package_info(package_info, cve_list)
+        if len(results['reasons']) != 0:
+            cve_list = results.get('cvelist')
+            fill_package_info(package_info, cve_list)
+
+    except Exception as er:
+        print(er, file=stderr)
 
     return package_info
 
@@ -172,13 +175,16 @@ def get_package_info_rpm(name, vulners_api):
 
     package_info = {'package': name,
                     'version': rpm_version(name), 'cvelist': []}
+    try:
+        results = vulners_api.os_audit(
+            os=CENT_OS, version=CENT_VERSION, packages=[name])
 
-    results = vulners_api.audit(
-        os=CENT_OS, os_version=CENT_VERSION, package=[name])
+        if len(results['reasons']) != 0:
+            cve_list = results.get('cvelist')
+            fill_package_info(package_info, cve_list)
 
-    if len(results['reasons']) != 0:
-        cve_list = results.get('cvelist')
-        fill_package_info(package_info, cve_list)
+    except Exception as er:
+        print(er, file=stderr)
 
     return package_info
 
@@ -189,17 +195,21 @@ def get_package_info_archive(name, vulners_api):
     package_info = {'package': name.split(
         '_', 1)[0], 'version': archive_version(name), 'cvelist': []}
 
-    results = vulners_api.softwareVulnerabilities(
-        package_info['package'].upper(), package_info['version'])
+    try:
+        results = vulners_api.get_software_vulnerabilities(
+            package_info['package'].upper(), package_info['version'])
 
-    cve_list = list()
+        cve_list = list()
 
-    if len(results) != 0:
-        # Valners рандомно может выдать request  с разными корнями
-        for cve in results['NVD' if "NVD" in results else "software"]:
-            if cve['cvelist'] is not None:
-                cve_list += cve['cvelist']
-        fill_package_info(package_info, cve_list)
+        if len(results) != 0:
+            # Valners рандомно может выдать request  с разными корнями
+            for cve in results['NVD' if "NVD" in results else "software"]:
+                if cve['cvelist'] is not None:
+                    cve_list += cve['cvelist']
+            fill_package_info(package_info, cve_list)
+
+    except Exception as er:
+        print(er, file=stderr)
 
     return package_info
 
@@ -207,19 +217,23 @@ def get_package_info_archive(name, vulners_api):
 def past_package_in_table(table, package_info):
     '''Вставки информации о пакете в таблицу'''
 
-    for cve_info in package_info['cvelist']:
-        row = table.add_row()
-        row.cells[0].text = cve_info['cve']
-        row.cells[1].text = cve_info['cvss']
-        row.cells[2].text = cve_info['description']
-        row.cells[3].text = package_info['package'] + " " + package_info['version']
-        row.cells[5].text = cve_info['exploit']
+    try:
+        for cve_info in package_info['cvelist']:
+            row = table.add_row()
+            row.cells[0].text = cve_info['cve']
+            row.cells[1].text = cve_info['cvss']
+            row.cells[2].text = cve_info['description']
+            row.cells[3].text = package_info['package'] + " " + package_info['version']
+            row.cells[5].text = cve_info['exploit']
+
+    except Exception as er:
+        print(er, file=stderr)
 
 
 def gather_information(table, package_list):
     '''Сбор информации о пакетах'''
 
-    vulners_api = vulners.Vulners(api_key=os.environ["VULNERS_API_KEY"])
+    vulners_api = vulners.VulnersApi(api_key=os.environ["VULNERS_API_KEY"])
     package_list
     for package_deb in package_list['deb']:
         package_info = get_package_info_deb(package_deb, vulners_api)

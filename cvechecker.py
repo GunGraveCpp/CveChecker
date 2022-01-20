@@ -1,4 +1,5 @@
 import click
+
 from CveChecker.instruments import *
 
 
@@ -15,4 +16,3 @@ def main(input, output):
 
 if __name__ == '__main__':
     main()
-
