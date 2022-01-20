@@ -1,5 +1,5 @@
 # CveChecker  
-<img src="https://img.shields.io/badge/Status-Pre--Alpha-red">
+<img src="https://img.shields.io/badge/Status-Pre--Alpha_v0.2-red">
 
 ### Начало работы
 
@@ -23,7 +23,11 @@
 ```
  python cvechecker.py
 ```
-
+### Формат фходных данных 
+   Названия пакетов должны иметь следующие форматы:
+* `<name>_<version>_amd64.deb`
+* `<name>_<version>.<architecture>.rpm`
+* `<name>_<version>.(zip | tar.gz | tar.bz2)` 
 ### Help
 
 ```
@@ -35,5 +39,6 @@
 
 |Идентификатор|Характер уязвимости|Описание|Компонент|Комментарий|Применимость|
 |-------------|-------------------|--------|---------|-----------|------------|
+
 
 

@@ -1,12 +1,12 @@
+import functools
+from sys import stderr
+
+import requests
 import vulners
 import os
-import functools
-import requests
-from docx.shared import Cm
 from bs4 import BeautifulSoup
-from googletrans import Translator
-from sys import stderr
 from docx import Document
+from docx.shared import Cm
 
 from CveChecker.config import *
 
@@ -22,8 +22,9 @@ def time_measurement(func):
         ret_value = func(*args, **kwargs)
         end = time.time()
         print('Function {} worked: {} min {} sec'.format(func.__name__,
-            int(end - start) // 60, int(end - start) % 60))
+                                                         int(end - start) // 60, int(end - start) % 60))
         return ret_value
+
     return inner if DEBUG else func
 
 
@@ -36,6 +37,7 @@ def trace(func):
         print('Function {} \n\tInput args: {} \n\tInput kwargs: {} \n\tReturn {}'.format(
             func.__name__, args, kwargs, ret_value), end='\n\n')
         return ret_value
+
     return inner if DEBUG else func
 
 
@@ -48,6 +50,7 @@ def final_message(text):
             ret_value = func(*args, **kwargs)
             print(text)
             return ret_value
+
         return inner if INFO else func
 
     return wrapper
@@ -64,7 +67,7 @@ def read_package_in_file(name):
             elif package.rfind('.rpm') != -1:
                 package_list['rpm'].append(package.replace('.rpm', ''))
             # package.count('-') костыль, чтобы была возможность делить имя и версию архива
-            elif (package.rfind('.tar') & package.rfind('.zip') != -1) & package.count('-'):
+            elif (package.rfind('.tar') & package.rfind('.zip') != -1) & package.count('_'):
                 package_list['archive'].append(
                     package[:package.find('.tar') & package.find('.zip')])
             else:
@@ -90,12 +93,6 @@ def generate_doc_table(document):
     return table
 
 
-def translate_to_rus(description):
-    translator = Translator()
-    translated = translator.translate(description, dest='ru')
-    return translated.text
-
-
 def deb_version(name):
     return name.split()[1]
 
@@ -105,34 +102,37 @@ def rpm_version(name):
 
 
 def archive_version(name):
-    return name.split('-', 1)[1]
+    return name.split('_', 1)[1]
+
 
 
 def get_description(cve):
     '''  Функция получения описпния CVE
-
     Получение описания и наличия eploit с https://nvd.nist.gov/
     по идентификатору cve
-
     '''
 
     req = requests.get(NIST_LINK.format(cve))
     answ = {'description': WITHOUT_DESCRIPTION,
-            'exploit': AVAILABILITY_EPLOIT_NO}
+            'exploit': AVAILABILITY_EPLOIT_NO,
+            'cvss': WITHOUT_DESCRIPTION}
 
     if req.ok:
         soup = BeautifulSoup(req.text, 'lxml')
+
         span_list = soup.find_all('span', class_="badge")
         if span_list:
             for span in span_list:
                 if span.text == 'Exploit':
                     answ['exploit'] = AVAILABILITY_EPLOIT_YES
+                    break
+        cvss = soup.find('span', {'data-testid': 'vuln-cvss2-panel-vector'})
+        if cvss:
+            answ['cvss'] = cvss.text[1:-1]  # Обрезаем скобки у вектора cvss
 
-        div = soup.find('div', id=DIV_ID)
-        if div:
-            desc = div.find('p', {'data-testid': 'vuln-description'})
-            if desc:
-                answ['description'] = desc.text
+        desc = soup.find('p', {'data-testid': 'vuln-description'})
+        if desc:
+            answ['description'] = desc.text
 
     return answ
 
@@ -146,7 +146,8 @@ def fill_package_info(package_info, cve_list):
         package_info['cvelist'].append(
             {'cve': cve,
              'description': cve_info['description'],
-             'exploit': cve_info['exploit']
+             'exploit': cve_info['exploit'],
+             'cvss': cve_info['cvss']
              }
         )
 
@@ -186,13 +187,18 @@ def get_package_info_archive(name, vulners_api):
     '''Получение информации об архиве'''
 
     package_info = {'package': name.split(
-        '-', 1)[0], 'version': archive_version(name), 'cvelist': []}
+        '_', 1)[0], 'version': archive_version(name), 'cvelist': []}
 
     results = vulners_api.softwareVulnerabilities(
         package_info['package'].upper(), package_info['version'])
 
+    cve_list = list()
+
     if len(results) != 0:
-        cve_list = [cve['id'].rsplit(':', 1)[1] for cve in results['software']]
+        # Valners рандомно может выдать request  с разными корнями
+        for cve in results['NVD' if "NVD" in results else "software"]:
+            if cve['cvelist'] is not None:
+                cve_list += cve['cvelist']
         fill_package_info(package_info, cve_list)
 
     return package_info
@@ -204,15 +210,17 @@ def past_package_in_table(table, package_info):
     for cve_info in package_info['cvelist']:
         row = table.add_row()
         row.cells[0].text = cve_info['cve']
+        row.cells[1].text = cve_info['cvss']
         row.cells[2].text = cve_info['description']
-        row.cells[3].text = package_info['package']
-        row.cells[4].text = translate_to_rus(cve_info['description'])
+        row.cells[3].text = package_info['package'] + " " + package_info['version']
+        row.cells[5].text = cve_info['exploit']
 
 
 def gather_information(table, package_list):
     '''Сбор информации о пакетах'''
 
-    vulners_api = vulners.Vulners(api_key=os.environ['VULNERS_API_KEY'])
+    vulners_api = vulners.Vulners(api_key=os.environ["VULNERS_API_KEY"])
+    package_list
     for package_deb in package_list['deb']:
         package_info = get_package_info_deb(package_deb, vulners_api)
         past_package_in_table(table, package_info)
